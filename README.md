@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="Clair3-Connect" width="360">
+</p>
+
 # Clair3-Connect
 
 Client-server interfaces for efficient agent-driven variant calling.
