@@ -1,0 +1,14 @@
+[
+  {
+    "id": "apoe_diplotype_hg00136",
+    "prompt": "Clinical genomics. Sample HG00136 is a human whole-genome sequencing dataset registered with the service. Determine its APOE diplotype \u2014 the \u03b52/\u03b53/\u03b54 combination that stratifies Alzheimer's-disease risk \u2014 defined by two SNPs on chr19 (GRCh38): rs429358 at chr19:44908684 (ref T, alt C) and rs7412 at chr19:44908822 (ref C, alt T). The three common haplotypes are \u03b54=(rs429358 C, rs7412 C), \u03b53=(T, C), \u03b52=(T, T). Steps: (1) determine which sequencing platform this sample is and select the matching Clair3 model; (2) call variants and read the genotype at BOTH SNP sites \u2014 a site with NO called variant is homozygous reference; (3) combine the two genotypes into the standard clinical diplotype. Finish with one line 'ANSWER: <diplotype>', for example 'ANSWER: e4/e4'.",
+    "match": "diplotype",
+    "expected": "e4/e4"
+  },
+  {
+    "id": "apoe_diplotype_hg00150",
+    "prompt": "Clinical genomics. Sample HG00150 is a human whole-genome sequencing dataset registered with the service. Determine its APOE diplotype \u2014 the \u03b52/\u03b53/\u03b54 combination that stratifies Alzheimer's-disease risk \u2014 defined by two SNPs on chr19 (GRCh38): rs429358 at chr19:44908684 (ref T, alt C) and rs7412 at chr19:44908822 (ref C, alt T). The three common haplotypes are \u03b54=(rs429358 C, rs7412 C), \u03b53=(T, C), \u03b52=(T, T). Steps: (1) determine which sequencing platform this sample is and select the matching Clair3 model; (2) call variants and read the genotype at BOTH SNP sites \u2014 a site with NO called variant is homozygous reference; (3) combine the two genotypes into the standard clinical diplotype. Finish with one line 'ANSWER: <diplotype>', for example 'ANSWER: e4/e4'.",
+    "match": "diplotype",
+    "expected": "e2/e4"
+  }
+]

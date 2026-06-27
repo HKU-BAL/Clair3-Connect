@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package clair3_connect.v1;
+
+service Clair3ConnectInference {
+
+  rpc Predict(PredictRequest) returns (PredictResponse);
+
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+enum TensorDType {
+  TENSOR_DTYPE_UNSPECIFIED = 0;
+  TENSOR_DTYPE_INT8        = 1;
+  TENSOR_DTYPE_INT16       = 2;
+  TENSOR_DTYPE_INT32       = 3;
+  TENSOR_DTYPE_FLOAT32     = 4;
+}
+
+message PredictRequest {
+
+  string request_id = 1;
+
+  string model_id = 2;
+
+  TensorDType dtype = 3;
+
+  repeated int64 shape = 4;
+
+  bytes payload = 5;
+
+  string payload_sha256 = 6;
+
+  bytes aead_nonce = 7;
+}
+
+enum PredictStatus {
+  PREDICT_STATUS_UNSPECIFIED  = 0;
+  PREDICT_STATUS_OK           = 1;
+  PREDICT_STATUS_RETRY        = 2;
+  PREDICT_STATUS_FAILED       = 3;
+  PREDICT_STATUS_REJECTED     = 4;
+}
+
+message PredictResponse {
+  string request_id = 1;
+  PredictStatus status = 2;
+  string error_code = 3;
+  string error_message = 4;
+
+  TensorDType y_dtype = 10;
+  repeated int64 y_shape = 11;
+
+  bytes y_payload = 12;
+
+  string y_sha256 = 13;
+
+  string input_payload_sha256 = 14;
+
+  string model_sha256 = 15;
+
+  bytes y_aead_nonce = 16;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string server_version = 1;
+
+  map<string, string> registered_models = 2;
+}

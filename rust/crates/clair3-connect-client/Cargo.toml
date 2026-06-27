@@ -1,0 +1,40 @@
+[package]
+name = "clair3-connect-client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Clair3-connect client binary `clair3-connect` — orchestrates BAM/tensor/LongPhase/VCF (Phase 0 skeleton)."
+
+[lib]
+name = "clair3_connect_client"
+path = "src/lib.rs"
+
+[[bin]]
+name = "clair3-connect"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+flate2 = "1.1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+dialoguer = { version = "0.11", default-features = false }
+console = "0.16"
+
+clair3-connect-core = { path = "../clair3-connect-core" }
+clair3-connect-transport = { path = "../clair3-connect-transport" }
+clair3-connect-longphase = { path = "../clair3-connect-longphase" }
+
+[dev-dependencies]
+clair3-connect-infer = { path = "../clair3-connect-infer" }
+clair3-connect-server = { path = "../clair3-connect-server" }
+tokio-stream = { version = "0.1", features = ["net"] }
+tonic = "0.12"
+tch = "0.18"
+tempfile = "3"

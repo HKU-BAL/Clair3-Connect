@@ -1,0 +1,75 @@
+server_version: "1.0.0-paper"
+
+models:
+
+  - model_id: pileup_ont_hac_v500
+    description: "Clair3 pileup (Bi-LSTM); ONT R10.4.1 HAC Dorado v5.0.0"
+    platform: ont
+    stage: pileup
+    accuracy: hac
+    torchscript:
+      path: <PROJECT_ROOT>/models/pileup_ont_hac_v500.ts
+      sha256: 3128257e8978f80ff99e399437521bef4f797d13b4d1fca6d0d8a7532874e0d2
+    input:  { shape: [-1, 33, 18], dtype: int32 }
+    output: { shape: [-1, 24], dtype: float32 }
+    flags:  { add_indel_length: false, predict: true }
+
+  - model_id: full_alignment_ont_hac_v500
+    description: "Clair3 full-alignment (ResCNN+PyramidPool); ONT R10.4.1 HAC v5.0.0"
+    platform: ont
+    stage: full_alignment
+    accuracy: hac
+    torchscript:
+      path: <PROJECT_ROOT>/models/full_alignment_ont_hac_v500.ts
+      sha256: 8f0d8002fdb84650160e992e3d9a6526b5447d40f47685977295dcc909041741
+    input:  { shape: [-1, 89, 33, 8], dtype: int8, layout: NHWC }
+    output: { shape: [-1, 90], dtype: float32 }
+    flags:  { add_indel_length: true, predict: true, enable_dwell_time: false }
+
+  - model_id: pileup_hifi_revio
+    description: "Clair3 pileup (Bi-LSTM); PacBio HiFi Revio"
+    platform: hifi
+    stage: pileup
+    accuracy: revio
+    torchscript:
+      path: <PROJECT_ROOT>/models/pileup_hifi_revio.ts
+      sha256: 66beb4567f57617302e664c7d2ba70b77362eaf0ba73b09bf335c402579a7999
+    input:  { shape: [-1, 33, 18], dtype: int32 }
+    output: { shape: [-1, 24], dtype: float32 }
+    flags:  { add_indel_length: false, predict: true }
+
+  - model_id: full_alignment_hifi_revio
+    description: "Clair3 full-alignment; PacBio HiFi Revio (matrix_depth=55)"
+    platform: hifi
+    stage: full_alignment
+    accuracy: revio
+    torchscript:
+      path: <PROJECT_ROOT>/models/full_alignment_hifi_revio.ts
+      sha256: 2eb475f5e60d1187e7722c7dab6dfcc8be4475eb1f74349f2999650ecfdb94d1
+    input:  { shape: [-1, 55, 33, 8], dtype: int8, layout: NHWC }
+    output: { shape: [-1, 90], dtype: float32 }
+    flags:  { add_indel_length: true, predict: true, enable_dwell_time: false }
+
+  - model_id: pileup_ilmn
+    description: "Clair3 pileup (Bi-LSTM); Illumina"
+    platform: ilmn
+    stage: pileup
+    accuracy: ilmn
+    torchscript:
+      path: <PROJECT_ROOT>/models/pileup_ilmn.ts
+      sha256: 44cfb8ae9e5c8d5066262a67b31949eaabc0b959b4dd273a569f6eaae593c8ea
+    input:  { shape: [-1, 33, 18], dtype: int32 }
+    output: { shape: [-1, 24], dtype: float32 }
+    flags:  { add_indel_length: false, predict: true }
+
+  - model_id: full_alignment_ilmn
+    description: "Clair3 full-alignment; Illumina (matrix_depth=55)"
+    platform: ilmn
+    stage: full_alignment
+    accuracy: ilmn
+    torchscript:
+      path: <PROJECT_ROOT>/models/full_alignment_ilmn.ts
+      sha256: 8cd359faa40e8af252971d5469d2f88dc085ab0a035177c469545adc10c7805a
+    input:  { shape: [-1, 55, 33, 8], dtype: int8, layout: NHWC }
+    output: { shape: [-1, 90], dtype: float32 }
+    flags:  { add_indel_length: true, predict: true, enable_dwell_time: false }

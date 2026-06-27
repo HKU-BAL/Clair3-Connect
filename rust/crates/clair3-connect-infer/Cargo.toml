@@ -1,0 +1,31 @@
+[package]
+name = "clair3-connect-infer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Clair3-connect inference: tch-rs + TorchScript model loader + per-device worker (Phase 1)."
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+serde = { workspace = true }
+serde_yaml.workspace = true
+sha2.workspace = true
+hex.workspace = true
+
+tch = "0.18"
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+
+libc = "0.2"
+
+[dev-dependencies]
+ndarray.workspace = true
+ndarray-npy.workspace = true
+serde_json.workspace = true
+
+clair3-connect-core = { path = "../clair3-connect-core" }

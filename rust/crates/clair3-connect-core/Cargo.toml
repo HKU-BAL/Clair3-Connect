@@ -1,0 +1,25 @@
+[package]
+name = "clair3-connect-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Clair3-connect core: BAM/FASTA tensor construction, candidates, VCF, phase index (Phase 0 skeleton)."
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+tracing.workspace = true
+
+sha2.workspace = true
+hex.workspace = true
+
+rust-htslib = { version = "0.50", default-features = false, features = ["bzip2", "lzma"] }
+
+[dev-dependencies]
+ndarray.workspace = true
+ndarray-npy.workspace = true

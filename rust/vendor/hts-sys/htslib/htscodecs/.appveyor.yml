@@ -1,0 +1,26 @@
+version: 'vers.{build}'
+
+branches:
+
+    except:
+      - gh-pages
+
+skip_tags: true
+
+image: Visual Studio 2019
+
+install:
+  - set HOME=.
+  - set MSYSTEM=MINGW64
+  - set PATH=C:/msys64/usr/bin;C:/msys64/mingw64/bin;%PATH%
+  - set MINGWPREFIX=x86_64-w64-mingw32
+  - "sh -lc \"pacman -S --noconfirm --needed base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-autotools\""
+
+build_script:
+  - set HOME=.
+  - set MSYSTEM=MINGW64
+  - set PATH=C:/msys64/usr/bin;C:/msys64/mingw64/bin;%PATH%
+  - "sh -lc \"autoreconf -i && ./configure --enable-werror CFLAGS='-g -O3 -D_XOPEN_SOURCE=600' && make -j2\""
+
+test_script:
+  - "sh -lc \"make check || (cat tests/test-suite.log; false)\""

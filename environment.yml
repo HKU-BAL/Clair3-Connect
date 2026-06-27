@@ -1,0 +1,18 @@
+name: clair3-connect
+channels:
+  - conda-forge
+dependencies:
+  - rust
+  - c-compiler
+  - cxx-compiler
+  - libprotobuf
+
+  - make
+  - cmake
+  - pkg-config
+  - zlib
+  - bzip2
+  - xz
+  - libcurl
+  - curl
+  - unzip

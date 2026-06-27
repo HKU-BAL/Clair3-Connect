@@ -1,0 +1,20 @@
+# Build outputs — recreated by ./install.sh; never commit these.
+/rust/target/
+/bin/
+
+# LibTorch — downloaded by ./install.sh server (~2-4 GB). NEVER commit.
+/libtorch/
+/libtorch-*.zip
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Editor / OS
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# NOTE: rust/vendor/ IS committed on purpose — it's the bundled hts-sys that
+# makes the build work without libclang. Do not ignore it.
