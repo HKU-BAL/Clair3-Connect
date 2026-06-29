@@ -1,0 +1,52 @@
+cff-version: 1.2.0
+message: "If you use Clair3-Connect, please cite the following preprint."
+title: "Clair3-Connect"
+abstract: "Client-server interfaces for efficient agent-driven variant calling."
+version: 0.0.1
+date-released: 2026-06-28
+license: "Apache-2.0 OR MIT"
+repository-code: "https://github.com/HKU-BAL/Clair3-Connect"
+type: software
+authors:
+  - family-names: Yu
+    given-names: Xian
+  - family-names: Zheng
+    given-names: Zhenxian
+  - family-names: Chen
+    given-names: Lei
+  - family-names: Qin
+    given-names: Zilan
+  - family-names: Guo
+    given-names: Xinyi
+  - family-names: He
+    given-names: Minggao
+  - family-names: Luo
+    given-names: Ruibang
+    email: rbluo@cs.hku.hk
+    affiliation: "The University of Hong Kong"
+preferred-citation:
+  type: article
+  title: "Client-server interfaces enable efficient agent-driven variant calling"
+  year: 2026
+  journal: "bioRxiv"
+  doi: "10.64898/2026.06.25.734665"
+  url: "https://www.biorxiv.org/content/10.64898/2026.06.25.734665v1"
+  publisher:
+    name: "Cold Spring Harbor Laboratory"
+  authors:
+    - family-names: Yu
+      given-names: Xian
+    - family-names: Zheng
+      given-names: Zhenxian
+    - family-names: Chen
+      given-names: Lei
+    - family-names: Qin
+      given-names: Zilan
+    - family-names: Guo
+      given-names: Xinyi
+    - family-names: He
+      given-names: Minggao
+    - family-names: Luo
+      given-names: Ruibang
+      email: rbluo@cs.hku.hk
+      affiliation: "The University of Hong Kong"

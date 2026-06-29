@@ -4,6 +4,11 @@
 
 # Clair3-Connect
 
+<p align="center">
+  <a href="https://www.biorxiv.org/content/10.64898/2026.06.25.734665v1"><img src="https://img.shields.io/badge/bioRxiv-2026.06.25.734665-b31b1b.svg" alt="bioRxiv"></a>
+  <a href="https://github.com/HKU-BAL/Clair3-Connect"><img src="https://img.shields.io/badge/version-0.0.1-blue.svg" alt="version 0.0.1"></a>
+</p>
+
 Client-server interfaces for efficient agent-driven variant calling.
 
 Clair3-Connect re-architects [Clair3](https://github.com/HKU-BAL/Clair3), a
@@ -90,8 +95,30 @@ the paper (`agent.py`, `run_e4.sh`).
 
 ## Citation
 
-Xian Yu, Zhenxian Zheng, Lei Chen, Zilan Qin, Xinyi Guo, Minggao He, Ruibang Luo.
-*Client-server interfaces enable efficient agent-driven variant calling.*
-bioRxiv 2026. Corresponding author: Ruibang Luo (rbluo@cs.hku.hk).
+If you use Clair3-Connect in your work, please cite our preprint:
+
+> Xian Yu, Zhenxian Zheng, Lei Chen, Zilan Qin, Xinyi Guo, Minggao He, Ruibang Luo.
+> *Client-server interfaces enable efficient agent-driven variant calling.*
+> bioRxiv 2026.06.25.734665 (2026).
+> doi: [https://doi.org/10.64898/2026.06.25.734665](https://doi.org/10.64898/2026.06.25.734665)
+
+<details>
+<summary>BibTeX</summary>
+
+```bibtex
+@article{yu2026clair3connect,
+  title     = {Client-server interfaces enable efficient agent-driven variant calling},
+  author    = {Yu, Xian and Zheng, Zhenxian and Chen, Lei and Qin, Zilan and Guo, Xinyi and He, Minggao and Luo, Ruibang},
+  journal   = {bioRxiv},
+  year      = {2026},
+  doi       = {10.64898/2026.06.25.734665},
+  url       = {https://doi.org/10.64898/2026.06.25.734665},
+  publisher = {Cold Spring Harbor Laboratory}
+}
+```
+
+</details>
+
+Corresponding author: Ruibang Luo (rbluo@cs.hku.hk).
 
 Built on [Clair3](https://github.com/HKU-BAL/Clair3).
