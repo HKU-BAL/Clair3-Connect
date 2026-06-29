@@ -2,7 +2,6 @@
 <p align="center">
   <img src="figs/logo.png" alt="Clair3-Connect" width="360">
 </p>
-
 <p align="center">
   <a href="https://www.biorxiv.org/content/10.64898/2026.06.25.734665v1"><img src="https://img.shields.io/badge/bioRxiv-2026.06.25.734665-b31b1b.svg" alt="bioRxiv"></a>
   <a href="https://github.com/HKU-BAL/Clair3-Connect"><img src="https://img.shields.io/badge/version-0.0.1-blue.svg" alt="version 0.0.1"></a>
@@ -21,15 +20,6 @@ an LLM agent invokes through single structured calls.
 
 <p align="center">
   <a href="figs/Fig1.pdf"><img src="figs/Fig1.png" alt="Clair3-Connect architecture overview" width="850"></a>
-</p>
-
-<p align="center">
-  <em><b>Figure 1.</b> Clair3-Connect architecture. <i>Top:</i> the client builds feature tensors
-  from the BAM and reference and decodes the returned probabilities into a VCF, while the server
-  runs only neural-network inference — only feature tensors cross the gRPC boundary, optionally
-  protected by mutual TLS and AES-256-GCM. <i>Bottom:</i> an LLM agent drives the client through
-  schema-defined tools (<code>bam_header</code>, <code>discover_models</code>,
-  <code>genotypes_at</code>, …), shown here on the APOE-diplotyping task.</em>
 </p>
 
 ## Install
