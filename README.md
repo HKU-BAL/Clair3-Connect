@@ -5,6 +5,7 @@
 <p align="center">
   <a href="https://www.biorxiv.org/content/10.64898/2026.06.25.734665v1"><img src="https://img.shields.io/badge/bioRxiv-2026.06.25.734665-b31b1b.svg" alt="bioRxiv"></a>
   <a href="https://github.com/HKU-BAL/Clair3-Connect"><img src="https://img.shields.io/badge/version-0.0.1-blue.svg" alt="version 0.0.1"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-green.svg" alt="License: BSD-3-Clause"></a>
 </p>
 
 Client-server interfaces for efficient agent-driven variant calling.
@@ -123,4 +124,5 @@ If you use Clair3-Connect in your work, please cite our preprint:
 
 Corresponding author: Ruibang Luo (rbluo@cs.hku.hk).
 
-Built on [Clair3](https://github.com/HKU-BAL/Clair3).
+Built on [Clair3](https://github.com/HKU-BAL/Clair3). Licensed under the
+[BSD 3-Clause License](LICENSE).
