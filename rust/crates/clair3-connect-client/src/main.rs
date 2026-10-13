@@ -73,6 +73,9 @@ struct Args {
     force_interactive: bool,
 
     force_non_interactive: bool,
+
+    callability: bool,
+    callable_min_depth: Option<u32>,
 }
 
 fn parse_args() -> Args {
@@ -109,6 +112,8 @@ fn parse_args() -> Args {
     let mut var_pct_phasing = 0.7_f64;
     let mut force_interactive = false;
     let mut force_non_interactive = false;
+    let mut callability = false;
+    let mut callable_min_depth: Option<u32> = None;
 
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
@@ -164,6 +169,10 @@ fn parse_args() -> Args {
             "--enable-phasing" => enable_phasing = true,
             "--longphase" => longphase = PathBuf::from(take!()),
             "--var-pct-phasing" => var_pct_phasing = take!().parse().expect("--var-pct-phasing"),
+            "--callability" => callability = true,
+            "--callable-min-depth" => {
+                callable_min_depth = Some(take!().parse().expect("--callable-min-depth"))
+            }
             "-h" | "--help" => {
                 eprintln!(
                     "clair3-connect --bam BAM --ref REF.fa --region chr:start-end \\
@@ -189,6 +198,19 @@ SelectCandidates -> full-alignment -> merge), which additionally honours:
         --pileup-model ID [--var-pct-full 0.3] [--ref-pct-full 0.3] \\
         [--threads 1] [--max-concurrent N] [--chunk-size 5000000] [--low-mem] \\
         [--enable-phasing [--longphase PATH] [--var-pct-phasing 0.7]]
+
+--callability also writes OUTPUT/callable.bed and OUTPUT/callability.json:
+every base of the processed regions labelled CALLABLE, NO_COVERAGE,
+LOW_COVERAGE (< --callable-min-depth reads with MAPQ >= 5; default 8 for
+ont/hifi, 10 for ilmn), POOR_MAPPING_QUALITY
+or EXCESSIVE_COVERAGE, so a position without a VCF record can be told apart
+from a position Clair3 could not assess. (FA-only mode.)
+
+Subcommands (run on the client only; nothing is sent to the server):
+  clair3-connect callable ...  coverage-state BED for regions (as --callability)
+  clair3-connect sites ...     descriptive read evidence at positions
+  clair3-connect phase ...     read-backed phasing of heterozygous SNVs
+(each takes --help)
 
 Tip: run with no required flags (or with --interactive) to start a
 guided setup that walks you through every input."
@@ -237,6 +259,8 @@ guided setup that walks you through every input."
         var_pct_phasing,
         force_interactive,
         force_non_interactive,
+        callability,
+        callable_min_depth,
     }
 }
 
@@ -343,6 +367,14 @@ async fn main() -> Result<()> {
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
+
+    let argv: Vec<String> = std::env::args().skip(1).collect();
+    match argv.first().map(String::as_str) {
+        Some("sites") => return clair3_connect_client::site_tools::run_sites(&argv[1..]),
+        Some("phase") => return clair3_connect_client::site_tools::run_phase(&argv[1..]),
+        Some("callable") => return clair3_connect_client::site_tools::run_callable(&argv[1..]),
+        _ => {}
+    }
 
     let mut args = parse_args();
 
@@ -483,6 +515,8 @@ async fn main() -> Result<()> {
             }]
         };
         let total_roi_bp: u64 = rois.iter().map(|r| r.end.saturating_sub(r.start)).sum();
+        let roi_list: Vec<(String, u64, u64)> =
+            rois.iter().map(|r| (r.contig.clone(), r.start, r.end)).collect();
         tracing::info!(
             "[fa-only] {} ROIs, {} bp total — no pileup model, no phasing",
             rois.len(),
@@ -540,6 +574,23 @@ async fn main() -> Result<()> {
             .filter(|l| !l.starts_with('#') && !l.is_empty())
             .count();
         tracing::info!("[fa-only] wrote {}", merge_vcf_path.display());
+        if args.callability {
+            let mut cp = clair3_connect_core::callability::CallableParams::for_platform(platform);
+            if let Some(d) = args.callable_min_depth {
+                cp.min_depth = d;
+            }
+            if args.threads_set {
+                cp.threads = args.threads.max(1);
+            }
+            let s = clair3_connect_client::site_tools::write_callability(&bam, &roi_list, &cp, &args.output)
+                .context("callability scan")?;
+            tracing::info!(
+                "[fa-only] wrote {} ({:.2}% callable, median depth {})",
+                args.output.join("callable.bed").display(),
+                s.callable_fraction * 100.0,
+                s.median_depth
+            );
+        }
         println!(
             "Wrote {} ({} variants, FA-only).",
             merge_vcf_path.display(),

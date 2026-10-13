@@ -98,6 +98,7 @@ impl Clair3ConnectInference for MockPredictService {
         Ok(Response::new(HealthResponse {
             server_version: "mock".to_string(),
             registered_models: Default::default(),
+            models: vec![],
         }))
     }
 }
@@ -108,7 +109,7 @@ async fn spawn_mock_server(svc: MockPredictService) -> (Channel, tokio::task::Jo
     let incoming = tokio_stream::wrappers::TcpListenerStream::new(listener);
     let handle = tokio::spawn(async move {
         Server::builder()
-            .add_service(Clair3ConnectInferenceServer::new(svc))
+            .add_service(Clair3ConnectInferenceServer::new(svc).accept_compressed(tonic::codec::CompressionEncoding::Zstd))
             .serve_with_incoming(incoming)
             .await
             .ok();

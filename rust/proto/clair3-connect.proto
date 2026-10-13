@@ -32,6 +32,8 @@ message PredictRequest {
   string payload_sha256 = 6;
 
   bytes aead_nonce = 7;
+
+  string payload_encoding = 8;
 }
 
 enum PredictStatus {
@@ -64,8 +66,22 @@ message PredictResponse {
 
 message HealthRequest {}
 
+message ModelInfo {
+  string model_id = 1;
+
+  string platform = 2;
+
+  string stage = 3;
+
+  string description = 4;
+
+  string model_sha256 = 5;
+}
+
 message HealthResponse {
   string server_version = 1;
 
   map<string, string> registered_models = 2;
+
+  repeated ModelInfo models = 3;
 }

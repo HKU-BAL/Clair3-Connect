@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use Clair3-Connect, please cite the following preprint."
 title: "Clair3-Connect"
 abstract: "Client-server interfaces for efficient agent-driven variant calling."
-version: 0.0.1
-date-released: 2026-06-28
+version: 0.2.0
+date-released: 2026-10-13
 license: "Apache-2.0 OR MIT"
 repository-code: "https://github.com/HKU-BAL/Clair3-Connect"
 type: software

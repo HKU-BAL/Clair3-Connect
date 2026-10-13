@@ -125,9 +125,9 @@ fn configure_client_compression(
         .accept_compressed(CompressionEncoding::Zstd)
         .accept_compressed(CompressionEncoding::Gzip);
     match std::env::var("CLAIR3_CONNECT_COMPRESS").ok().as_deref() {
-        Some("zstd") => client.send_compressed(CompressionEncoding::Zstd),
+        Some("none") | Some("off") | Some("0") => client,
         Some("gzip") => client.send_compressed(CompressionEncoding::Gzip),
-        _ => client,
+        _ => client.send_compressed(CompressionEncoding::Zstd),
     }
 }
 
@@ -219,6 +219,14 @@ impl PredictClient {
                 &req.shape,
                 &req.payload_sha256,
             );
+            if crate::codec::request_zstd_enabled() {
+                if let Ok(c) = crate::codec::compress_payload(&req.payload) {
+                    if c.len() < req.payload.len() {
+                        req.payload = c.into();
+                        req.payload_encoding = crate::codec::PAYLOAD_ENCODING_ZSTD.to_string();
+                    }
+                }
+            }
             let (ciphertext, nonce) = crate::aead::seal(key, &req.payload, &aad);
             req.payload = ciphertext.into();
             req.aead_nonce = nonce.into();
@@ -391,6 +399,7 @@ pub fn make_request_i32(
         payload: payload.into(),
         payload_sha256,
         aead_nonce: Default::default(),
+        payload_encoding: String::new(),
     }
 }
 
@@ -410,6 +419,7 @@ pub fn make_request_f32(
         payload: payload.into(),
         payload_sha256,
         aead_nonce: Default::default(),
+        payload_encoding: String::new(),
     }
 }
 
@@ -429,5 +439,6 @@ pub fn make_request_i8(
         payload: payload.into(),
         payload_sha256,
         aead_nonce: Default::default(),
+        payload_encoding: String::new(),
     }
 }

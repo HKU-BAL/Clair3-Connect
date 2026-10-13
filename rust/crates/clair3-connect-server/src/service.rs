@@ -7,7 +7,7 @@ use clair3_connect_infer::worker::Worker;
 use clair3_connect_transport::aead::{self, AeadKey};
 use clair3_connect_transport::checksum::sha256_hex;
 use clair3_connect_transport::proto::{
-    clair3_connect_inference_server::Clair3ConnectInference, HealthRequest, HealthResponse, PredictRequest,
+    clair3_connect_inference_server::Clair3ConnectInference, HealthRequest, HealthResponse, ModelInfo, PredictRequest,
     PredictResponse, PredictStatus, TensorDType,
 };
 use std::collections::HashMap;
@@ -38,6 +38,8 @@ struct LoadedEntry {
     rr_counter: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 
     model_sha256: String,
+
+    info: ModelInfo,
 }
 
 impl LoadedEntry {
@@ -148,6 +150,13 @@ fn load_one_entry(
         devices: devices.to_vec(),
         per_device_gates,
         rr_counter: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        info: ModelInfo {
+            model_id: entry.model_id.clone(),
+            platform: entry.platform.clone(),
+            stage: entry.stage.clone(),
+            description: entry.description.clone(),
+            model_sha256: model_sha256.clone(),
+        },
         model_sha256,
     })))
 }
@@ -489,6 +498,41 @@ impl Clair3ConnectInference for PredictService {
             (None, false) => {  }
         }
 
+        if req.payload_encoding == clair3_connect_transport::codec::PAYLOAD_ENCODING_ZSTD {
+            let expected = TensorDType::try_from(req.dtype)
+                .ok()
+                .and_then(|d| clair3_connect_transport::codec::expected_bytes(&req.shape, d));
+            let plain = expected
+                .ok_or_else(|| "cannot size payload from shape and dtype".to_string())
+                .and_then(|n| {
+                    clair3_connect_transport::codec::decompress_payload(&req.payload, n)
+                        .map_err(|e| e.to_string())
+                });
+            match plain {
+                Ok(p) => {
+                    req.payload = p.into();
+                    req.payload_encoding.clear();
+                }
+                Err(e) => {
+                    return Ok(Response::new(reject_response(
+                        &req.request_id,
+                        "payload_decompress_failed",
+                        &e,
+                        "",
+                        &entry.model_sha256,
+                    )));
+                }
+            }
+        } else if !req.payload_encoding.is_empty() {
+            return Ok(Response::new(reject_response(
+                &req.request_id,
+                "payload_encoding_unsupported",
+                &req.payload_encoding,
+                "",
+                &entry.model_sha256,
+            )));
+        }
+
         let actual_sha = sha256_hex(&req.payload);
         if !req.payload_sha256.is_empty() && req.payload_sha256 != actual_sha {
             return Ok(Response::new(reject_response(
@@ -587,12 +631,16 @@ impl Clair3ConnectInference for PredictService {
         _request: Request<HealthRequest>,
     ) -> Result<Response<HealthResponse>, Status> {
         let mut registered_models = HashMap::new();
+        let mut models = Vec::new();
         for (id, e) in self.entries.load().iter() {
             registered_models.insert(id.clone(), e.model_sha256.clone());
+            models.push(e.info.clone());
         }
+        models.sort_by(|a, b| a.model_id.cmp(&b.model_id));
         Ok(Response::new(HealthResponse {
             server_version: env!("CARGO_PKG_VERSION").to_string(),
             registered_models,
+            models,
         }))
     }
 }

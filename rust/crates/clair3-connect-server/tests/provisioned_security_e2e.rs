@@ -61,7 +61,10 @@ async fn spawn_mtls_echo(server_tls: ServerTlsOptions) -> (String, tokio::task::
         Server::builder()
             .tls_config(server_tls.build())
             .unwrap()
-            .add_service(Clair3ConnectInferenceServer::new(EchoService))
+            .add_service(
+                Clair3ConnectInferenceServer::new(EchoService)
+                    .accept_compressed(tonic::codec::CompressionEncoding::Zstd),
+            )
             .serve_with_incoming(incoming)
             .await
             .ok();

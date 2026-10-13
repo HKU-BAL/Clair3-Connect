@@ -10,6 +10,20 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
 
+const WINDOW_PAD_BP: u64 = 33;
+
+pub(crate) fn padded_window(win: &Region) -> Region {
+    Region {
+        contig: win.contig.clone(),
+        start: win.start.saturating_sub(WINDOW_PAD_BP),
+        end: win.end + WINDOW_PAD_BP,
+    }
+}
+
+pub(crate) fn in_window(win: &Region, pos_0based: u64) -> bool {
+    pos_0based >= win.start && pos_0based < win.end
+}
+
 #[derive(Clone)]
 pub struct FaOnlyInputs<'a> {
 
@@ -137,17 +151,19 @@ pub async fn run_fa_only_pipeline<W: Write>(
 
             let built = tokio::task::spawn_blocking(
                 move || -> Result<Option<(Vec<u64>, FaMatrix)>> {
-                    let scan = calculate_pileup(&win_build, &bam, &fasta, &pileup_params)
+                    let padded = padded_window(&win_build);
+                    let scan = calculate_pileup(&padded, &bam, &fasta, &pileup_params)
                         .with_context(|| {
                             format!(
                                 "fa-only candidate scan {}:{}-{}",
-                                win_build.contig, win_build.start, win_build.end
+                                padded.contig, padded.start, padded.end
                             )
                         })?;
                     let mut cands: Vec<u64> = scan
                         .candidates
                         .iter()
                         .map(|c| (c.pos_1based - 1) as u64)
+                        .filter(|&p| in_window(&win_build, p))
                         .collect();
                     drop(scan);
                     cands.sort_unstable();
@@ -223,4 +239,34 @@ pub async fn run_fa_only_pipeline<W: Write>(
         cpu_concurrency
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn r(start: u64, end: u64) -> Region {
+        Region { contig: "chr19".into(), start, end }
+    }
+
+    #[test]
+    fn padded_window_covers_the_flank_before_the_start() {
+        let p = padded_window(&r(44_908_683, 44_908_822));
+        assert_eq!((p.start, p.end), (44_908_650, 44_908_855));
+        assert!(44_908_683 - p.start >= 16, "need >= 16 contiguous columns before the first site");
+    }
+
+    #[test]
+    fn padded_window_clamps_at_contig_start() {
+        assert_eq!(padded_window(&r(10, 100)).start, 0);
+    }
+
+    #[test]
+    fn adjacent_windows_keep_each_site_once() {
+        let (a, b) = (r(0, 500), r(500, 1000));
+        for p in [0u64, 499, 500, 999] {
+            assert_eq!(in_window(&a, p) as u8 + in_window(&b, p) as u8, 1, "pos {p}");
+        }
+        assert!(!in_window(&a, 1000) && !in_window(&b, 1000));
+    }
 }

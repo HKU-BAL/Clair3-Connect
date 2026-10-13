@@ -137,7 +137,7 @@ def main() -> int:
             registry = yaml.safe_load(registry_path.read_text()) or {}
         else:
             registry = {}
-        registry.setdefault("server_version", "0.0.1")
+        registry.setdefault("server_version", "0.2.0")
         registry.setdefault("models", [])
 
         want = STAGES if args.stage == "both" else (args.stage,)

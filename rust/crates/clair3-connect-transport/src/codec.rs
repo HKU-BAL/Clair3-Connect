@@ -98,3 +98,20 @@ mod tests {
         assert_eq!(decode_i8(&encode_i8(&i8s)), i8s);
     }
 }
+
+pub const PAYLOAD_ENCODING_ZSTD: &str = "zstd";
+
+pub fn request_zstd_enabled() -> bool {
+    !matches!(
+        std::env::var("CLAIR3_CONNECT_COMPRESS").ok().as_deref(),
+        Some("none") | Some("off") | Some("0") | Some("gzip")
+    )
+}
+
+pub fn compress_payload(payload: &[u8]) -> std::io::Result<Vec<u8>> {
+    zstd::bulk::compress(payload, 1)
+}
+
+pub fn decompress_payload(payload: &[u8], max_len: usize) -> std::io::Result<Vec<u8>> {
+    zstd::bulk::decompress(payload, max_len)
+}

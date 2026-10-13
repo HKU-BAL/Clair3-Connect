@@ -114,7 +114,10 @@ async fn spawn_mtls_server(
         Server::builder()
             .tls_config(server_tls.build())
             .unwrap()
-            .add_service(Clair3ConnectInferenceServer::new(svc))
+            .add_service(
+                Clair3ConnectInferenceServer::new(svc)
+                    .accept_compressed(tonic::codec::CompressionEncoding::Zstd),
+            )
             .serve_with_incoming(incoming)
             .await
             .ok();

@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "clair3-connect-client"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clair3-connect-core",
@@ -316,6 +316,9 @@ dependencies = [
  "console 0.16.3",
  "dialoguer",
  "flate2",
+ "rust-htslib",
+ "serde",
+ "serde_json",
  "tch",
  "tempfile",
  "thiserror 2.0.18",
@@ -328,7 +331,7 @@ dependencies = [
 
 [[package]]
 name = "clair3-connect-core"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "hex",
@@ -344,7 +347,7 @@ dependencies = [
 
 [[package]]
 name = "clair3-connect-infer"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clair3-connect-core",
@@ -364,7 +367,7 @@ dependencies = [
 
 [[package]]
 name = "clair3-connect-longphase"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "thiserror 2.0.18",
@@ -373,7 +376,7 @@ dependencies = [
 
 [[package]]
 name = "clair3-connect-server"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -396,7 +399,7 @@ dependencies = [
 
 [[package]]
 name = "clair3-connect-transport"
-version = "0.0.1"
+version = "0.2.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -413,6 +416,7 @@ dependencies = [
  "tonic-prost",
  "tracing",
  "zeroize",
+ "zstd 0.13.3",
 ]
 
 [[package]]

@@ -4,7 +4,7 @@
 </p>
 <p align="center">
   <a href="https://www.biorxiv.org/content/10.64898/2026.06.25.734665v1"><img src="https://img.shields.io/badge/bioRxiv-2026.06.25.734665-b31b1b.svg" alt="bioRxiv"></a>
-  <a href="https://github.com/HKU-BAL/Clair3-Connect"><img src="https://img.shields.io/badge/version-0.0.1-blue.svg" alt="version 0.0.1"></a>
+  <a href="https://github.com/HKU-BAL/Clair3-Connect"><img src="https://img.shields.io/badge/version-0.2.0-blue.svg" alt="version 0.2.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-green.svg" alt="License: BSD-3-Clause"></a>
 </p>
 
@@ -85,6 +85,8 @@ only by default; add `--full-pipeline` for the classic Clair3 flow.
 - **Secure transport** — add mutual TLS + AES-256-GCM with `--tls-*` and
   `--aead-key` on both the server and the client.
 
+Requests are compressed with ZSTD by default (set `CLAIR3_CONNECT_COMPRESS=none` to turn this off). With payload encryption, each tensor is compressed before it is sealed.
+
 ## Agent usage
 
 The client is driven by an LLM agent through **schema-defined, agent-facing
@@ -92,9 +94,7 @@ tools** — the agent calls operations like `discover_models`, `bam_header`,
 `call_variants`, and `genotypes_at` with single structured calls and never
 handles file paths or flags itself. The reference tool definitions are in
 [`agent/clair3_connect_tools.py`](agent/clair3_connect_tools.py), with an
-optional MCP server in [`agent/mcp_server.py`](agent/mcp_server.py). The
-[`agent/`](agent) directory also contains the APOE-diplotyping driver used in
-the paper (`agent.py`, `run_e4.sh`).
+optional MCP server in [`agent/mcp_server.py`](agent/mcp_server.py).
 
 ## Citation
 
