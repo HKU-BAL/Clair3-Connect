@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import copy
 import gzip
 import json
 import os
@@ -16,11 +17,15 @@ os.makedirs(WORKDIR, exist_ok=True)
 def _e(k, d=""):
     return os.environ.get(k, d)
 
+# Minimum reads (MAPQ >= 5) for a locus to count as CALLABLE
+# (see `clair3-connect callable --help`); empty = the client's default.
 CALLABLE_MIN_DEPTH = _e("CLAIR3_CONNECT_CALLABLE_MIN_DEPTH")
 MIN_PQ = int(_e("CLAIR3_CONNECT_MIN_PQ", "20"))
 
 _REF_BY_PLAT = {"ont": _e("REF_ONT"), "hifi": _e("REF_HIFI"), "ilmn": _e("REF_ILMN")}
 
+# Registered samples: name -> {"bam": path, "ref": path}. The platform is not
+# stored; the agent determines it from the BAM header.
 SAMPLES = {}
 
 APOE_TRUTH_JSON = _e("APOE_TRUTH_JSON",
@@ -61,6 +66,7 @@ def discover_models(server: str = None) -> dict:
                "description": m.description} for m in resp.models]
     source = "registry"
     if not models:
+        # Older servers only report model ids; fall back to the naming convention.
         source = "model_id_naming_convention"
         for mid in sorted(resp.registered_models.keys()):
             plat = "ont" if "ont" in mid else "hifi" if "hifi" in mid else "ilmn" if "ilmn" in mid else "?"
@@ -339,9 +345,18 @@ def phase_at(sample: str, positions: list) -> dict:
     d["sample"] = s
     return d
 
+# ---------------------------------------------------------------- allele definitions
+# Optional pharmacogene module: a structured, deterministic view of PharmVar star
+# allele definitions, so that an agent does not have to page through the raw
+# haplotype table. It only reports definitions; genotypes still come from Clair3
+# (genotypes_at) and matching genotypes to alleles is left to the caller.
+# PHARMVAR_FILES maps gene -> PharmVar GRCh38 *.haplotypes.tsv; by default files
+# are looked up under $CLAIR3_CONNECT_PHARMVAR_DIR/<GENE>-*/GRCh38/.
 PHARMVAR_FILES = {}
 _REFSEQ_CHROM = {"NC_000010.11": "chr10", "NC_000022.11": "chr22", "NC_000001.11": "chr1",
                  "NC_000007.14": "chr7", "NC_000006.12": "chr6", "NC_000019.10": "chr19"}
+# Allele classes a small-variant caller cannot assess, per gene (curated; PharmVar
+# does not list them as small variants in the haplotype table).
 STRUCTURAL_CAVEATS = {
     "CYP2D6": "CYP2D6 star alleles also include a whole-gene deletion (*5), gene duplications/multiplications "
               "(xN) and CYP2D6/CYP2D7 hybrid genes (e.g. *13, *36, *68). These are copy-number/structural "
@@ -353,6 +368,7 @@ STRUCTURAL_CAVEATS = {
               "small-variant calls.",
 }
 
+
 def _pharmvar_file(gene):
     if gene in PHARMVAR_FILES:
         return PHARMVAR_FILES[gene]
@@ -360,6 +376,7 @@ def _pharmvar_file(gene):
     root = _e("CLAIR3_CONNECT_PHARMVAR_DIR")
     hits = sorted(glob.glob(os.path.join(root, f"{gene}-*", "GRCh38", "*.haplotypes.tsv"))) if root else []
     return hits[-1] if hits else None
+
 
 def allele_definitions(gene: str, alleles: list = None, max_alleles: int = 60) -> dict:
     """PharmVar star-allele definitions for a pharmacogene, as structured data:
@@ -425,6 +442,7 @@ def allele_definitions(gene: str, alleles: list = None, max_alleles: int = 60) -
            "note": "definitions only; get genotypes with genotypes_at (Clair3) and phase with phase_at when "
                    "an allele needs variants on the same haplotype",
            "core_alleles": {}}
+    # keep the answer within ~5,000 characters (agent tool results are size-limited)
     for a in shown[:max_alleles]:
         res["core_alleles"][a] = core_rows[a]
         if len(json.dumps(res)) > 5000:
@@ -435,13 +453,290 @@ def allele_definitions(gene: str, alleles: list = None, max_alleles: int = 60) -
         res["truncated"] = f"{left} more core alleles not shown; pass `alleles` to request specific ones"
     return res
 
-DISPATCH = {
+# ---------------------------------------------------------------- execution guards (hooks)
+def guards_enabled() -> bool:
+    """Return True unless CLAIR3_CONNECT_GUARDS is explicitly disabled."""
+    return _e("CLAIR3_CONNECT_GUARDS", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+MAX_MEDIAN_DEPTH = float(_e("CLAIR3_CONNECT_MAX_MEDIAN_DEPTH", "500"))
+MAX_HET_FRACTION = float(_e("CLAIR3_CONNECT_MAX_HET_FRACTION", "0.98"))
+
+_PLAT_PATTERNS = {
+    "ont": re.compile(
+        r"(?<![a-z0-9])(ont|nanopore|dorado[a-z0-9]*|guppy|lsk1[0-9]+|map-ont|r10-lsk[a-z0-9]*)(?![a-z0-9])",
+        re.IGNORECASE,
+    ),
+    "hifi": re.compile(
+        r"(?<![a-z0-9])(hifi|pacbio|pbmm2|ccs|map-hifi|revio|sequel[a-z0-9]*)(?![a-z0-9])",
+        re.IGNORECASE,
+    ),
+    "ilmn": re.compile(
+        r"(?<![a-z0-9])(ilmn|illumina|bwa|bowtie2?|novaseq|hiseq|nextseq|dragen|markduplicates)(?![a-z0-9])",
+        re.IGNORECASE,
+    ),
+}
+_BAM_META_CACHE = {}
+
+
+def _map_rg_pl(val: str):
+    v = (val or "").strip().lower()
+    if any(k in v for k in ("illumina", "ilmn")):
+        return "ilmn"
+    if any(k in v for k in ("ont", "nanopore", "oxford")):
+        return "ont"
+    if any(k in v for k in ("pacbio", "hifi", "ccs")):
+        return "hifi"
+    return None
+
+
+def _inspect_bam_metadata(sample: str) -> dict:
+    s = (sample or "").strip()
+    cfg = SAMPLES.get(s)
+    if not cfg or not cfg.get("bam") or not os.path.exists(cfg["bam"]):
+        return {"error": "missing_sample"}
+    bam_path = cfg["bam"]
+    cache_key = (s, bam_path)
+    if cache_key in _BAM_META_CACHE:
+        return _BAM_META_CACHE[cache_key]
+    samtools = os.environ.get("SAMTOOLS", "<CONDA>/envs/clair3-torch/bin/samtools")
+    try:
+        p = subprocess.run([samtools, "view", "--no-PG", "-H", bam_path],
+                           capture_output=True, text=True, timeout=120)
+    except Exception as e:
+        return {"error": f"samtools failed: {e}"}
+    if p.returncode != 0:
+        return {"error": "samtools view -H failed"}
+    lines = p.stdout.splitlines()
+    rg = [dict(f.split(":", 1) for f in ln.split("\t")[1:] if ":" in f)
+          for ln in lines if ln.startswith("@RG")]
+    rg_samples = sorted({r["SM"] for r in rg if r.get("SM")})
+    rg_platforms = sorted({r["PL"] for r in rg if r.get("PL")})
+    pg_lines = [ln for ln in lines if ln.startswith("@PG")]
+    has_pg = bool(pg_lines)
+    has_header_evidence = bool(rg_platforms or has_pg)
+
+    plats = set()
+    for pl in rg_platforms:
+        mp = _map_rg_pl(pl)
+        if mp:
+            plats.add(mp)
+    if not plats and pg_lines:
+        pg_text = "\n".join(pg_lines)
+        for plat, pat in _PLAT_PATTERNS.items():
+            if pat.search(pg_text):
+                plats.add(plat)
+
+    if len(plats) == 1:
+        inferred_platform = next(iter(plats))
+    elif len(plats) > 1:
+        inferred_platform = "ambiguous"
+    else:
+        inferred_platform = None
+
+    meta = {
+        "rg_samples": rg_samples,
+        "rg_platforms": rg_platforms,
+        "has_pg": has_pg,
+        "has_header_evidence": has_header_evidence,
+        "inferred_platform": inferred_platform,
+    }
+    _BAM_META_CACHE[cache_key] = meta
+    return meta
+
+
+class ToolGuardSession:
+    """Per-run execution guard state enforcing Clair3-Connect operational invariants."""
+
+    def __init__(self):
+        self.verified_vcfs = {}  # sample -> list of verified VCF paths (passed sanity checks)
+
+    def _check_sample_identity(self, sample: str, tool_name: str):
+        meta = _inspect_bam_metadata(sample)
+        if "error" in meta:
+            return None, meta
+        s = (sample or "").strip()
+        if meta["rg_samples"] and s not in meta["rg_samples"]:
+            return {
+                "error": (
+                    f"blocked by sample-identity guard: BAM @RG SM tag(s) {meta['rg_samples']} "
+                    f"conflict with registered sample name '{s}'; refusing to run {tool_name}"
+                ),
+                "guard": "sample_identity",
+                "registered_sample": s,
+                "bam_rg_samples": meta["rg_samples"],
+                "retryable": False,
+            }, meta
+        return None, meta
+
+    def _check_platform_integrity(self, sample: str, requested_platform: str, meta: dict):
+        if "error" in meta:
+            return None
+        s = (sample or "").strip()
+        req = (requested_platform or "").strip().lower()
+        if not meta["has_header_evidence"] or meta["inferred_platform"] is None:
+            return {
+                "error": (
+                    f"blocked by platform-integrity guard: BAM header for sample '{s}' has no "
+                    "sequencing-platform evidence (@RG PL or @PG); refusing blind model selection"
+                ),
+                "guard": "platform_integrity",
+                "retryable": False,
+            }
+        if meta["inferred_platform"] != "ambiguous" and req != meta["inferred_platform"]:
+            return {
+                "error": (
+                    f"blocked by platform-integrity guard: BAM header for sample '{s}' indicates "
+                    f"platform '{meta['inferred_platform']}', refusing mismatched model platform '{req}'"
+                ),
+                "guard": "platform_integrity",
+                "detected_platform": meta["inferred_platform"],
+                "requested_platform": req,
+                "retryable": False,
+            }
+        return None
+
+    def _verified_het_positions(self, sample: str) -> set:
+        hets = set()
+        for vpath in self.verified_vcfs.get(sample, []):
+            if not vpath or not os.path.exists(vpath):
+                continue
+            for r in _vcf_records(vpath):
+                if r["filter"] not in ("PASS", "."):
+                    continue
+                alleles = r["gt"].split("/")
+                if len(alleles) == 2 and "." not in alleles and alleles[0] != alleles[1]:
+                    hets.add(f"{r['chrom']}:{r['pos']}")
+        return hets
+
+    def _record_verified_vcf(self, sample: str, result: dict):
+        s = (sample or "").strip()
+        vp = result.get("vcf_path") if isinstance(result, dict) else None
+        if s and vp and os.path.exists(vp):
+            lst = self.verified_vcfs.setdefault(s, [])
+            if vp not in lst:
+                lst.append(vp)
+
+    def _check_result_sanity(self, result: dict):
+        if not isinstance(result, dict) or "error" in result:
+            return None
+        anomalies = []
+        cal = result.get("callability") or {}
+        md = cal.get("median_depth")
+        if md is not None and float(md) > MAX_MEDIAN_DEPTH:
+            anomalies.append(f"median_depth={md} > {MAX_MEDIAN_DEPTH}")
+        tot = result.get("total")
+        hf = result.get("het_fraction")
+        if tot is not None and tot >= 20 and hf is not None and float(hf) >= MAX_HET_FRACTION:
+            anomalies.append(f"het_fraction={hf:.3f} >= {MAX_HET_FRACTION} (total={tot})")
+        if anomalies:
+            return {
+                "error": (
+                    "blocked by result-sanity guard: anomalous calling summary detected ("
+                    + ", ".join(anomalies)
+                    + "); output withheld"
+                ),
+                "guard": "result_sanity",
+                "anomalies": anomalies,
+                "retryable": False,
+            }
+        return None
+
+
+def wrap_with_guards(dispatch: dict, enabled=None) -> dict:
+    """Wrap tool dispatch functions with deterministic execution guards."""
+    use_guards = guards_enabled() if enabled is None else bool(enabled)
+    if not use_guards:
+        return dict(dispatch)
+    session = ToolGuardSession()
+    guarded = dict(dispatch)
+
+    for tool_name in ("call_variants", "genotypes_at"):
+        if tool_name not in dispatch:
+            continue
+        orig = dispatch[tool_name]
+
+        def _guarded_call(sample=None, platform=None, *args, _orig=orig, _tool=tool_name, **kwargs):
+            s = (sample or "").strip()
+            blk, meta = session._check_sample_identity(s, _tool)
+            if blk:
+                return blk
+            pblk = session._check_platform_integrity(s, platform, meta)
+            if pblk:
+                return pblk
+            res = _orig(sample, platform, *args, **kwargs)
+            if isinstance(res, dict) and "error" in res:
+                return res
+            sblk = session._check_result_sanity(res)
+            if sblk:
+                return sblk
+            session._record_verified_vcf(s, res)
+            return res
+
+        guarded[tool_name] = _guarded_call
+
+    if "phase_at" in dispatch:
+        orig_phase = dispatch["phase_at"]
+
+        def _guarded_phase(sample=None, positions=None, *args, _orig=orig_phase, **kwargs):
+            s = (sample or "").strip()
+            blk, _ = session._check_sample_identity(s, "phase_at")
+            if blk:
+                return blk
+            if not session.verified_vcfs.get(s):
+                return {
+                    "error": (
+                        f"blocked by calling-before-phasing guard: sample '{s}' has no valid Clair3 "
+                        "variant call in this session; phase_at requires prior verified variant calling"
+                    ),
+                    "guard": "calling_before_phasing",
+                    "retryable": False,
+                }
+            if not isinstance(positions, list) or len(positions) < 2:
+                return _orig(sample, positions, *args, **kwargs)
+            hets = session._verified_het_positions(s)
+            req_coords = []
+            for p in positions:
+                parts = str(p).strip().split(":")
+                if len(parts) >= 2:
+                    coord = f"{parts[0]}:{parts[1].replace(',', '')}"
+                    if coord not in req_coords:
+                        req_coords.append(coord)
+            matched = [c for c in req_coords if c in hets]
+            if len(matched) < 2:
+                return {
+                    "error": (
+                        f"blocked by calling-before-phasing guard: fewer than 2 requested positions are "
+                        f"Clair3-called heterozygous variants for sample '{s}' (matched {len(matched)}: {matched}); "
+                        "refusing to phase uncalled or homozygous positions"
+                    ),
+                    "guard": "calling_before_phasing",
+                    "matched_het_positions": matched,
+                    "retryable": False,
+                }
+            res = _orig(sample, positions, *args, **kwargs)
+            if isinstance(res, dict) and "error" not in res:
+                res = copy.deepcopy(res)
+                for site in res.get("sites") or []:
+                    if isinstance(site, dict):
+                        for k in ("ref_count", "alt_count", "other_count", "heterozygous"):
+                            site.pop(k, None)
+                res["phasing_only"] = True
+            return res
+
+        guarded["phase_at"] = _guarded_phase
+
+    return guarded
+
+
+RAW_DISPATCH = {
     "discover_models": discover_models,
     "bam_header": bam_header,
     "call_variants": call_variants,
     "genotypes_at": genotypes_at,
     "phase_at": phase_at,
 }
+DISPATCH = wrap_with_guards(RAW_DISPATCH)
 
 TOOLS = [
     {"type": "function", "function": {
@@ -484,6 +779,7 @@ TOOLS = [
 
 TOOLS_CLINICAL = TOOLS
 
+# Optional pharmacogene tools (not part of TOOLS, so the default tool set is unchanged).
 DISPATCH_PGX = {"allele_definitions": allele_definitions}
 PGX_TOOLS = [
     {"type": "function", "function": {
